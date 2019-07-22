@@ -19,13 +19,11 @@ class CircleDisplay extends StatefulWidget {
   CircleDisplay({
     String unit = "%",
     double startAngle = 270,
-    double phase = 0,
     double textFontSize = 24,
     double valueWidthPercent = 50,
-    List<String> customText = const [],
+    List<String> customText = const ["hello"],
     double stepSize = 1,
-    Duration animationDuration = const Duration(milliseconds: 3000),
-    VoidCallback animationListener,
+    Duration animationDuration = const Duration(milliseconds: 6000),
     AnimationStatusListener animationStatusListener,
     int formatDigits = 0,
     bool drawBackCircle = true,
@@ -41,17 +39,14 @@ class CircleDisplay extends StatefulWidget {
     int arcAlpha = 80,
     int textAlpha = 80,
   }) {
-    animationListener ??= (){};
     animationStatusListener ??= (AnimationStatus status){};
     state = _CircleDisplayState(
       unit,
       startAngle,
-      phase,
       textFontSize,
       valueWidthPercent,
       customText,
       stepSize,
-      animationListener,
       animationStatusListener,
       animationDuration,
       formatDigits,
@@ -83,9 +78,6 @@ class CircleDisplay extends StatefulWidget {
 
   /// set the starting angle for the view
   void setStartAngle(double angle) => state.setStartAngle(angle);
-
-  /// set the phase
-  void setPhase(double phase) => state.setPhase(phase);
 
   /// set the size of the center text in dp
   void setTextSize(double size) => state.setTextSize(size);
@@ -135,15 +127,10 @@ class CircleDisplay extends StatefulWidget {
   /// returns the radius of the drawn circle
   double getRadius(Size size) => state.getRadius(size);
 
-  /// Returns the currently displayed value from the view. Depending on the
-  /// used method to show the value, this value can be percent or actual value.
-  double getValue() => state.getValue();
+  double getAngle() => state.getAngle();
 
   /// calculates the needed angle for a given value
   double calcAngle(double percent) => state.calcAngle(percent);
-
-  /// returns the current animation status of the view
-  double getPhase() => state.getPhase();
 
   /// returns true if drawing the given part is enabled, false if not
   bool isDrawPartEnabled(CircleDisplayPart part) =>
@@ -172,17 +159,8 @@ class _CircleDisplayState extends State<CircleDisplay>
   /// angle that represents the displayed value
   double _mAngle = 0;
 
-  /// current state of the animation
-  double _mPhase;
-
-  /// the currently displayed value, can be percent or actual value
-  double _mValue = 0;
-
-  /// the maximum displayable value, depends on the set value
-  double _mMaxValue = 0;
-
   /// percent of the maximum width the arc takes
-  double _mValueWidthPercent;
+  double _mInnerCircleWidthPercent;
 
   /// represent if each part is drawn
   Map<CircleDisplayPart, bool> drawPart = {
@@ -216,21 +194,16 @@ class _CircleDisplayState extends State<CircleDisplay>
   /// the size of the text in the inner circle
   double _mTextFontSize;
 
-  /// the listener for the animation
-  VoidCallback _mAnimationListener;
-
   /// the listener for the animation status
   AnimationStatusListener _mAnimationStatusListener;
 
   _CircleDisplayState(
     this._mUnit,
     this._mStartAngle,
-    this._mPhase,
     this._mTextFontSize,
-    this._mValueWidthPercent,
+    this._mInnerCircleWidthPercent,
     this._mCustomText,
     this._mStepSize,
-    this._mAnimationListener,
     this._mAnimationStatusListener,
     Duration animationDuration,
     int formatDigits,
@@ -282,17 +255,44 @@ class _CircleDisplayState extends State<CircleDisplay>
     ..color.withAlpha(textAlpha);
   }
 
+  bool flag =false;
+
   @override
   void initState() {
     _mDrawAnimator =
-        Tween(begin: getPhase(), end: 1.0).animate(_mAnimationController)
+        Tween(begin: 0.0, end: 360.0).animate(_mAnimationController)
     ..addListener(() {
       setState(() {
-        _mValue = _mDrawAnimator.value;
-//        todo: animationListener();
+        _mAngle = _mDrawAnimator.value;
       });
     })
-    ..addStatusListener(_mAnimationStatusListener);
+    ..addStatusListener((AnimationStatus status) {
+      switch(status){
+
+        case AnimationStatus.dismissed:
+          break;
+        case AnimationStatus.forward:
+          break;
+        case AnimationStatus.reverse:
+          break;
+        case AnimationStatus.completed:
+          if (flag) {
+            setColor(CircleDisplayPart.BACK_CIRCLE, Colors.white);
+            setColor(CircleDisplayPart.ARC, Colors.green);
+          }
+          else {
+            setColor(CircleDisplayPart.BACK_CIRCLE, Colors.green);
+            setColor(CircleDisplayPart.ARC, Colors.white);
+          }
+          flag = !flag;
+          _mAnimationController.reset();
+          _mAnimationController.forward();
+          break;
+      }
+    }
+        //todo: _mAnimationStatusListener
+    );
+    _mAnimationController.forward();
     super.initState();
   }
 
@@ -323,7 +323,6 @@ class _CircleDisplayState extends State<CircleDisplay>
                     foregroundPainter: ArcPainter(
                         _getCircleBox(_boxConstraintsToSize(constraints)),
                         _mStartAngle,
-                        getPhase(),
                         _mAngle,
                         paints[CircleDisplayPart.ARC]),
                   ),
@@ -334,7 +333,7 @@ class _CircleDisplayState extends State<CircleDisplay>
                       foregroundPainter: CirclePainter(
                           getRadius(_boxConstraintsToSize(constraints)) /
                               100 *
-                              (100 - _mValueWidthPercent),
+                              (100 - _mInnerCircleWidthPercent),
                           paints[CircleDisplayPart.INNER_CIRCLE]),
                     ),
                   ),
@@ -366,15 +365,7 @@ class _CircleDisplayState extends State<CircleDisplay>
 
   /// draws the custom text in the center of the view
   String _getText() {
-    int index = ((getValue() * getPhase()) / getStepSize()).floor();
-    if (_mCustomText.length == 0) {
-      return _mFormatValue.format(getValue() * getPhase()) + " " + _mUnit;
-    } else if (index < _mCustomText.length) {
-      return _mCustomText[index];
-    } else {
-      print("${CircleDisplay._LOG_TAG}: Custom text array not long enough.");
-      return "";
-    }
+    return _mFormatValue.format(getAngle()) + " " + _mUnit;
   }
 
   Rect _getCircleBox(Size size) {
@@ -412,13 +403,6 @@ class _CircleDisplayState extends State<CircleDisplay>
     });
   }
 
-  /// set the phase
-  void setPhase(double phase) {
-    setState(() {
-      _mPhase = phase;
-    });
-  }
-
   /// set this to true to draw the specific part, default: true
   void setDrawPart(CircleDisplayPart part, bool enabled) {
     setState(() {
@@ -443,7 +427,7 @@ class _CircleDisplayState extends State<CircleDisplay>
   /// set the thickness of the value bar, default 50%
   void setValueWidthPercent(double percentFromTotalWidth) {
     setState(() {
-      _mValueWidthPercent = percentFromTotalWidth;
+      _mInnerCircleWidthPercent = percentFromTotalWidth;
     });
   }
 
@@ -498,6 +482,11 @@ class _CircleDisplayState extends State<CircleDisplay>
 
   ///GETTERS
 
+  /// returns the start angle
+  double getStartAngle() {
+    return _mStartAngle;
+  }
+
   /// returns the diameter of the drawn circle/arc
   double getDiameter(Size size) {
     return min(size.width, size.height);
@@ -515,8 +504,8 @@ class _CircleDisplayState extends State<CircleDisplay>
 
   /// Returns the currently displayed value from the view. Depending on the
   /// used method to show the value, this value can be percent or actual value.
-  double getValue() {
-    return _mValue;
+  double getAngle() {
+    return _mAngle;
   }
 
   /// calculates the needed angle for a given value
@@ -524,17 +513,12 @@ class _CircleDisplayState extends State<CircleDisplay>
     return percent / 100 * 360;
   }
 
-  /// returns the current animation status of the view
-  double getPhase() {
-    return _mPhase;
-  }
-
   /// returns true if drawing the given part is enabled, false if not
   bool isDrawPartEnabled(CircleDisplayPart part) {
     return drawPart[part];
   }
 
-  /// returns the current stepsize of the display, default 1
+  /// returns the current step size of the display, default 1
   double getStepSize() {
     return _mStepSize;
   }
@@ -604,35 +588,14 @@ class _CircleDisplayState extends State<CircleDisplay>
     return Size(offset.dx, offset.dy);
   }
 
-  /// returns the angle representing the given value
-  double getAngleForValue(double value) {
-    return value / _mMaxValue * 360;
-  }
-
-  /// returns the value representing the given angle
-  double getValueForAngle(double angle) {
-    return angle / 360 * _mMaxValue;
-  }
-
   /// returns the distance of a certain point on the view to the center of the view
   double distanceToCenter(double x, double y) {
     // pythagoras
     return sqrt(pow(getCenter().x - x, 2) + pow(getCenter().y - y, 2));
   }
 
-//  TODO 1: void showValue(double percentToShow, double duration, Animator.AnimatorListener animatorListener) {
-//
-//    mAngle = calcAngle(percentToShow);
-//    mValue = percentToShow;
-//    mMaxValue = 100f;
-//
-//    startAnim(animatorListener, duration);
-//  }
-
-  void startAnim(VoidCallback animationListener,
-      AnimationStatusListener animationStatusListener, int duration) {
-    _mPhase = 0;
-    _mDrawAnimator = Tween(begin: getPhase(), end: 1.0).animate(
+  void startAnim(AnimationStatusListener animationStatusListener, int duration) {
+    _mDrawAnimator = Tween(begin: 0, end: 360.0).animate(
       AnimationController(
         vsync: this,
         duration: Duration(seconds: duration),
@@ -640,18 +603,15 @@ class _CircleDisplayState extends State<CircleDisplay>
     )
       ..addListener(() {
         setState(() {
-          _mValue = _mDrawAnimator.value;
-//        todo: animationListener();
+          _mAngle = _mDrawAnimator.value;
          });
       })
       ..addStatusListener(animationStatusListener);
   }
 
-//  TODO 3: public void stopAnim(){
-//    if (mDrawAnimator != null)
-//      mDrawAnimator.removeAllListeners();
-//    mDrawAnimator.cancel();
-//  }
+  void stopAnim(){
+    _mAnimationController.stop();
+  }
 
   @override
   void dispose() {

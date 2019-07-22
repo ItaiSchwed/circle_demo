@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vector_math/vector_math.dart';
 
 class ArcPainter extends CustomPainter {
   Rect _mCircleBox;
@@ -10,18 +11,16 @@ class ArcPainter extends CustomPainter {
   ArcPainter(
       this._mCircleBox,
       this._mStartAngle,
-      this._mPhase,
       this._mAngle,
       this._mArcPaint,
       );
 
   @override
   void paint(Canvas canvas, Size size) {
-    double angle = _mAngle * _mPhase;
     canvas.drawArc(
         _mCircleBox,
-        _mStartAngle,
-        angle,
+        radians(_mStartAngle),
+        radians(_mAngle),
         true,
         _mArcPaint
     );
