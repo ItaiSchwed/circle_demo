@@ -18,16 +18,23 @@ class MyApp extends StatelessWidget {
           arcColor: Colors.green,
           backCircleColor: Colors.white,
           unit: '°',
-          animationStatusListener: {
-            AnimationStatus.completed:
-                (AnimationStatusActions animationStatusActions) {
-              animationStatusActions
-                  .restart(direction: Direction.FORWARD, colors: {
-                CircleDisplayPart.BACK_CIRCLE:
-                    fill ? Colors.green : Colors.white,
-                CircleDisplayPart.ARC: fill ? Colors.white : Colors.green
-              });
-              fill = !fill;
+          animationStatusListener:
+              (AnimationStatusActions actions, AnimationStatus status) {
+            switch (status) {
+              case AnimationStatus.completed:
+                actions.restart(direction: Direction.FORWARD, colors: {
+                  CircleDisplayPart.BACK_CIRCLE:
+                      fill ? Colors.green : Colors.white,
+                  CircleDisplayPart.ARC: fill ? Colors.white : Colors.green
+                });
+                fill = !fill;
+                break;
+              case AnimationStatus.dismissed:
+                break;
+              case AnimationStatus.forward:
+                break;
+              case AnimationStatus.reverse:
+                break;
             }
           },
         ),

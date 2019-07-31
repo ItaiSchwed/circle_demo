@@ -9,45 +9,53 @@ import 'circle_display_part.dart';
 import 'circle_painter.dart';
 
 typedef CircleDisplayAnimationStatusListener = void Function(
-    AnimationStatusActions actions);
+    AnimationStatusActions actions, AnimationStatus status);
 
 class CircleDisplay extends StatefulWidget {
-  _CircleDisplayState state;
+  /// the unit that is represented by the circle-display
+  final String unit;
+
+  /// start angle of the view
+  final double startAngle;
+
+  /// percent of the maximum width the arc takes
+  final double valueWidthPercent;
+
+  /// the decimal format responsible for formatting the values in the view
+  final NumberFormat formatValue = NumberFormat("###,###,###,##0.0");
+
+  /// array that contains values for the custom-text
+  final List<String> customText;
+
+  /// the size of the text in the inner circle
+  final double textFontSize;
+
+  /// the duration of the animation
+  final Duration animationDuration;
+
+  /// the listener for the animation status
+  final CircleDisplayAnimationStatusListener animationStatusListener;
+
+  /// flags represent if drawing parts of the circle
+  final bool drawBackCircle;
+  final bool drawInnerCircle;
+  final bool drawArc;
+  final bool drawText;
+
+  /// Colors of the different parts
+  final Color backCircleColor;
+  final Color innerCircleColor;
+  final Color arcColor;
+  final Color textColor;
+
+  /// Alphas of the different parts
+  final int backCircleAlpha;
+  final int innerCircleAlpha;
+  final int arcAlpha;
+  final int textAlpha;
 
   @override
-  State<StatefulWidget> createState() => state;
-
-  CircleDisplay({
-    String unit = "%",
-    double startAngle = 270,
-    double valueWidthPercent = 50,
-    NumberFormat formatValue,
-    List<String> customText = const [],
-    double textFontSize = 24,
-    Duration animationDuration = const Duration(milliseconds: 6000),
-    Map<AnimationStatus, CircleDisplayAnimationStatusListener>
-        animationStatusListener,
-    bool drawBackCircle = true,
-    bool drawInnerCircle = true,
-    bool drawArc = true,
-    bool drawText = true,
-    Color backCircleColor = const Color.fromRGBO(0, 255, 0, 1),
-    Color innerCircleColor = Colors.white,
-    Color arcColor = const Color.fromRGBO(255, 0, 0, 1),
-    Color textColor = Colors.black,
-    int backCircleAlpha = 80,
-    int innerCircleAlpha = 80,
-    int arcAlpha = 80,
-    int textAlpha = 80,
-  }) {
-    AnimationStatus.values.forEach((AnimationStatus status) {
-      if (!animationStatusListener.containsKey(status)) {
-        animationStatusListener[status] =
-            (AnimationStatusActions animationStatusActions) {};
-      }
-    });
-    formatValue ??= NumberFormat("###,###,###,##0.0");
-
+  State<StatefulWidget> createState() {
     Map<CircleDisplayPart, Paint> paints = {
       CircleDisplayPart.BACK_CIRCLE: new Paint()
         ..isAntiAlias = true
@@ -68,45 +76,43 @@ class CircleDisplay extends StatefulWidget {
         ..color = textColor
         ..color.withAlpha(textAlpha)
     };
-    Map<CircleDisplayPart, bool> drawPart = {
+    Map<CircleDisplayPart, bool> drawParts = {
       CircleDisplayPart.BACK_CIRCLE: drawBackCircle,
       CircleDisplayPart.INNER_CIRCLE: drawInnerCircle,
       CircleDisplayPart.ARC: drawArc,
       CircleDisplayPart.TEXT: drawText
     };
-    state = _CircleDisplayState(
-        unit,
-        startAngle,
-        valueWidthPercent,
-        formatValue,
-        customText,
-        textFontSize,
-        animationDuration,
-        animationStatusListener,
-        drawPart,
-        paints);
+
+    return _CircleDisplayState(drawParts, paints);
   }
+
+  CircleDisplay({
+    this.unit = "%",
+    this.startAngle = 270,
+    this.valueWidthPercent = 50,
+    this.customText = const [],
+    this.textFontSize = 24,
+    this.animationDuration = const Duration(milliseconds: 6000),
+    this.animationStatusListener,
+    this.drawBackCircle = true,
+    this.drawInnerCircle = true,
+    this.drawArc = true,
+    this.drawText = true,
+    this.backCircleColor = const Color.fromRGBO(0, 255, 0, 1),
+    this.innerCircleColor = Colors.white,
+    this.arcColor = const Color.fromRGBO(255, 0, 0, 1),
+    this.textColor = Colors.black,
+    this.backCircleAlpha = 80,
+    this.innerCircleAlpha = 80,
+    this.arcAlpha = 80,
+    this.textAlpha = 80,
+  });
 }
 
 class _CircleDisplayState extends State<CircleDisplay>
     with SingleTickerProviderStateMixin {
-  /// the unit that is represented by the circle-display
-  String _unit;
-
-  /// start angle of the view
-  double _startAngle;
-
   /// angle that represents the displayed value
   double _angle = 0;
-
-  /// percent of the maximum width the arc takes
-  double _valueWidthPercent;
-
-  /// the decimalformat responsible for formatting the values in the view
-  NumberFormat _formatValue = NumberFormat("###,###,###,##0.0");
-
-  /// array that contains values for the custom-text
-  List<String> _customText;
 
   /// the arc drawing animations
   Animation<double> _animation;
@@ -116,16 +122,6 @@ class _CircleDisplayState extends State<CircleDisplay>
 
   /// boolean flag that indicates if the box has been setup
   bool _boxSetup = false;
-
-  /// the size of the text in the inner circle
-  double _textFontSize;
-
-  /// the duration of the animation
-  Duration _animationDuration;
-
-  /// the listener for the animation status
-  Map<AnimationStatus, CircleDisplayAnimationStatusListener>
-      _animationStatusListener;
 
   /// represent if each part is drawn
   Map<CircleDisplayPart, bool> _drawParts = {
@@ -143,24 +139,14 @@ class _CircleDisplayState extends State<CircleDisplay>
     CircleDisplayPart.TEXT: null,
   };
 
-  _CircleDisplayState(
-      this._unit,
-      this._startAngle,
-      this._valueWidthPercent,
-      this._formatValue,
-      this._customText,
-      this._textFontSize,
-      this._animationDuration,
-      this._animationStatusListener,
-      this._drawParts,
-      this._paints);
+  _CircleDisplayState(this._drawParts, this._paints);
 
   @override
   void initState() {
     _animation = Tween(begin: 0.0, end: 360.0).animate(
         _animationController = AnimationController(
       vsync: this,
-      duration: _animationDuration,
+      duration: widget.animationDuration,
     ))
       ..addListener(() {
         setState(() {
@@ -168,8 +154,9 @@ class _CircleDisplayState extends State<CircleDisplay>
         });
       })
       ..addStatusListener((AnimationStatus status) {
-        _animationStatusListener[status](
-            AnimationStatusActions(this.restartAnimation, this.stopAnimation));
+        widget.animationStatusListener(
+            AnimationStatusActions(this.restartAnimation, this.stopAnimation),
+            status);
       });
     _animationController.forward();
     super.initState();
@@ -192,7 +179,7 @@ class _CircleDisplayState extends State<CircleDisplay>
           _animationController.forward();
           return;
         case Direction.BACKWARD:
-          _animationController.animateBack(_startAngle);
+          _animationController.animateBack(widget.startAngle);
           return;
       }
     });
@@ -228,7 +215,7 @@ class _CircleDisplayState extends State<CircleDisplay>
                 : CustomPaint(
                     foregroundPainter: ArcPainter(
                         _getCircleBox(_boxConstraintsToSize(constraints)),
-                        _startAngle,
+                        widget.startAngle,
                         _angle,
                         _paints[CircleDisplayPart.ARC]),
                   ),
@@ -239,7 +226,7 @@ class _CircleDisplayState extends State<CircleDisplay>
                       foregroundPainter: CirclePainter(
                           getRadius(_boxConstraintsToSize(constraints)) /
                               100 *
-                              (100 - _valueWidthPercent),
+                              (100 - widget.valueWidthPercent),
                           _paints[CircleDisplayPart.INNER_CIRCLE]),
                     ),
                   ),
@@ -264,17 +251,18 @@ class _CircleDisplayState extends State<CircleDisplay>
       style: TextStyle(
         color: getColor(CircleDisplayPart.TEXT)
             .withAlpha(getAlpha(CircleDisplayPart.TEXT)),
-        fontSize: _textFontSize,
+        fontSize: widget.textFontSize,
       ),
     );
   }
 
   /// draws the custom text in the center of the view
   String _getText() {
-    if (_customText.length == 0)
-      return _formatValue.format(getAngle()) + " " + _unit;
-    return _customText[
-        (getAngle() * _customText.length / 360).floor() % _customText.length];
+    if (widget.customText.length == 0)
+      return widget.formatValue.format(getAngle()) + " " + widget.unit;
+    return widget.customText[
+        (getAngle() * widget.customText.length / 360).floor() %
+            widget.customText.length];
   }
 
   Rect _getCircleBox(Size size) {
