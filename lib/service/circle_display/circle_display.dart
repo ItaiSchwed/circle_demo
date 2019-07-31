@@ -93,7 +93,7 @@ class CircleDisplay extends StatefulWidget {
     this.customText = const [],
     this.textFontSize = 24,
     this.animationDuration = const Duration(milliseconds: 6000),
-    this.animationStatusListener,
+    this.animationStatusListener = _emptyAnimationStatusListener,
     this.drawBackCircle = true,
     this.drawInnerCircle = true,
     this.drawArc = true,
@@ -107,6 +107,8 @@ class CircleDisplay extends StatefulWidget {
     this.arcAlpha = 80,
     this.textAlpha = 80,
   });
+
+  static _emptyAnimationStatusListener(AnimationStatusActions actions, AnimationStatus status) => {};
 }
 
 class _CircleDisplayState extends State<CircleDisplay>
